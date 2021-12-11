@@ -1,0 +1,56 @@
+{ 
+  "statesArray": [
+    { "id": 0, "text": "A",
+      "mir": [{
+        "content": "bass",
+        "sfx.duration": "7.2",
+        "lowlevel.hfc.mean": "* TO 0.0005",
+        "lowlevel.spectral_complexity.mean": "1"
+        }]
+    },
+    { "id": 1, "text": "B",
+      "mir": [{
+        "content": "bass",
+        "sfx.duration": "* TO 5",
+        "lowlevel.spectral_complexity.mean": "5"
+        }]
+    },
+    { "id": 2, "text": "C",
+      "mir": [{
+        "tags": "hang",
+        "content": "hang",
+        "sfx.duration": "* TO 3",
+        "sfx.inharmonicity.mean": "0.1"
+        }]
+    },
+    { "id": 3, "text": "D", "duration": 23.4 },
+    { "id": 4, "text": "E", "duration": 15.2 },
+    { "id": 5, "text": "F", "duration": 12.76 },
+    { "id": 6, "text": "G", "duration": 13.0 },
+    { "id": 7, "text": "H", "duration": 23.1 }
+  ],
+  "linkArray": [
+    { "from": 0, "to": 0, "text": "0.3"},
+    { "from": 0, "to": 1, "text": "0.7" },
+    { "from": 1, "to": 1, "text": "0.2" },
+    { "from": 1, "to": 2, "text": "0.4" },
+    { "from": 1, "to": 3, "text": "0.4" },
+    { "from": 2, "to": 2, "text": "0.5" },
+    { "from": 2, "to": 1, "text": "0.5" },
+    { "from": 3, "to": 3, "text": "0.1" },
+    { "from": 3, "to": 4, "text": "0.3" },
+    { "from": 3, "to": 5, "text": "0.6" },
+    { "from": 4, "to": 4, "text": "0.2" },
+    { "from": 4, "to": 3, "text": "0.1" },
+    { "from": 4, "to": 6, "text": "0.4" },
+    { "from": 4, "to": 7, "text": "0.3" },
+    { "from": 5, "to": 5, "text": "0.3" },
+    { "from": 5, "to": 3, "text": "0.2" },
+    { "from": 5, "to": 6, "text": "0.5" },
+    { "from": 6, "to": 6, "text": "0.8" },
+    { "from": 6, "to": 4, "text": "0.1" },
+    { "from": 6, "to": 5, "text": "0.1" },
+    { "from": 7, "to": 7, "text": "0.8" },
+    { "from": 7, "to": 0, "text": "0.2" }
+  ]
+}
