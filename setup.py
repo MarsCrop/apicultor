@@ -34,6 +34,7 @@ setup(name='apicultor',
     entry_points={'console_scripts': [
         'rpdl = apicultor.helper.WebScrapingDownload:main',
         'rpdla = apicultor.helper.ArchiveWebScrapingDownload:main',
+        'sigclip = apicultor.segmentation.DoSegmentation:main',
         'miranalysis = apicultor.run_mir_analysis:main',
         'musicemotionmachine = apicultor.emotion.MusicEmotionMachine:main',
         'sonify = apicultor.sonification.Sonification:main',
@@ -43,5 +44,8 @@ setup(name='apicultor',
         'audio2ogg = apicultor.helper.convert_to_ogg:main',
         'smcomposition = apicultor.state_machine.SMComposition:main'
     ]},
-    install_requires=['numpy', 'pathos', 'numba', 'smst', 'wget', 'colorama', 'transitions','pysoundfile', 'librosa', 'scipy', 'matplotlib', 'scikit-learn', 'bs4', 'pandas']
+    install_requires=['pathos', 
+    #Source is being deprecated 
+    #'smst',  'numba','numpy',  
+    'wget', 'colorama', 'transitions','pysoundfile', 'librosa', 'scipy', 'matplotlib', 'scikit-learn', 'bs4', 'pandas']
      )
