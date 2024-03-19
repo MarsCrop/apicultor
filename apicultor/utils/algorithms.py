@@ -409,14 +409,14 @@ def NSGConstantQ(signal):
     _baseFreqs = np.append(_baseFreqs,0)     
     _baseFreqs = np.append(_baseFreqs,22050) 
 
-    for j in reversed(range(_binsNum)):                                                 
+    for j in reversed(list(range(_binsNum))):                                                 
          _baseFreqs = np.append(_baseFreqs,signal.fs -_baseFreqs[j])
 
     bw = []                 
     bw.append(2*_minFrequency)
     bw.insert(0,cqtbw[-1])
     #bw.append(_baseFreqs[_binsNum+2] - _baseFreqs[_binsNum-1])
-    for j in list(reversed(range(cqtbw.size-1))):
+    for j in list(reversed(list(range(cqtbw.size-1)))):
         bw.append(cqtbw[j])  
     
     _baseFreqs /= fftres
@@ -479,7 +479,7 @@ def NSGConstantQ(signal):
    
     normalizeWeights[0] *= normalizeWeights[-1] * 2 / 4096;
 
-    for j in reversed(range(_binsNum)):
+    for j in reversed(list(range(_binsNum))):
         normalizeWeights = np.append(normalizeWeights,normalizeWeights[j]);
     
     _freqWins *= normalizeWeights
@@ -488,7 +488,7 @@ def NSGConstantQ(signal):
 
     fourier = np.fft.fft(signal.signal[:2048],4096)
   
-    for i in list(reversed(range(int(4096/2-1)))):
+    for i in list(reversed(list(range(int(4096/2-1))))):
       fourier[i] = np.conj(fourier[i])
     fill = _shifts[0] - 4096 ;
 
@@ -713,9 +713,8 @@ class MIR:
         total_size = self.M
         for i in range(frames):
             self.frame = self.x[i*(self.M-self.H):(i*(self.M-self.H) + self.M)]
-            if not len(self.frame) == total_size:
-                break 
-            elif all(self.frame == 0):           
+            #Allow fourier fields
+            if all(self.frame == 0):           
                 #print ("Frame values are all 0, discarding the frame")    
                 continue  
             else:           
@@ -815,6 +814,84 @@ class MIR:
         signalEnergy = self.x @ self.x.T
         strongDecay = np.sqrt(signalEnergy / _centroid)  #seconds              
         return strongDecay
+
+    def ERBBands(self): 
+
+        # Example usage
+        number_bands = 46
+        min_frequency = 80
+        max_frequency = 16000
+        sample_rate = 44100
+        ear_q = 9.26449
+        width = 24.7
+        spectrum_size = self.magnitudes.size  # Example spectrum size
+        
+        filter_size = number_bands
+        filter_frequencies = np.zeros(filter_size)
+        filter_size_inv = 1.0 / filter_size
+        bw = ear_q * width
+
+        for i in range(1, filter_size + 1):
+            filter_frequencies[filter_size - i] = -bw + \
+                np.exp(i * (-np.log(max_frequency + bw) + np.log(min_frequency + bw)) * filter_size_inv) * (max_frequency + bw)
+
+        filter_size = number_bands
+        ucirc = np.exp(2j * np.pi * np.arange(spectrum_size) / ((spectrum_size - 1) * 2))
+        order = 1
+        pi = np.pi
+        filter_coefficients = np.zeros((filter_size, spectrum_size))
+
+        fft_size = (spectrum_size - 1) * 2
+
+        sqr_p = np.sqrt(3 + 2 ** 1.5)
+        sqr_m = np.sqrt(3 - 2 ** 1.5)
+
+        for i in range(filter_size):
+            cf = filter_frequencies[i]
+            erb = width * ((cf / ear_q) ** order + (width ** order)) ** (1 / order)
+            b = 1.019 * 2 * np.pi * erb
+            r = np.exp(-b / sample_rate)
+            theta = 2 * np.pi * cf / sample_rate
+            pole = r * np.exp(1j * theta)
+            T = 1.0 / sample_rate
+            gtord = 4
+
+            sin_cf = np.sin(2 * cf * pi * T)
+            cos_cf = np.cos(2 * cf * pi * T)
+            gt_cos = 2 * T * cos_cf / np.exp(b * T)
+            gt_sin = T * sin_cf / np.exp(b * T)
+
+            A11 = -(gt_cos + 2 * sqr_p * gt_sin) / 2
+            A12 = -(gt_cos - 2 * sqr_p * gt_sin) / 2
+            A13 = -(gt_cos + 2 * sqr_m * gt_sin) / 2
+            A14 = -(gt_cos - 2 * sqr_m * gt_sin) / 2
+
+            zeros = [-A11 / T, -A12 / T, -A13 / T, -A14 / T]
+
+            g1 = -2 * np.exp(4j * cf * pi * T) * T
+            g2 = 2 * np.exp(-(b * T) + 2j * cf * pi * T) * T
+            cx_exp = np.exp(4j * cf * pi * T)
+
+            filter_gain = np.abs(
+                (g1 + g2 * (cos_cf - sqr_m * sin_cf)) *
+                (g1 + g2 * (cos_cf + sqr_m * sin_cf)) *
+                (g1 + g2 * (cos_cf - sqr_p * sin_cf)) *
+                (g1 + g2 * (cos_cf + sqr_p * sin_cf)) /
+                (((-2 / np.exp(2 * b * T)) - 2 * cx_exp + 2 * (1 + cx_exp) / np.exp(b * T)) ** 4)
+            )
+
+            for j in range(spectrum_size):
+                filter_coefficients[i][j] = (T ** 4 / filter_gain) * \
+                    abs(ucirc[j] - zeros[0]) * abs(ucirc[j] - zeros[1]) * \
+                    abs(ucirc[j] - zeros[2]) * abs(ucirc[j] - zeros[3]) * \
+                    abs((pole - ucirc[j]) * (pole - ucirc[j])) ** (-gtord)
+
+        bands = np.zeros(number_bands)
+
+        for i in range(number_bands):
+            bands[i] = np.sum(self.magnitudes * filter_coefficients[i])
+
+        return bands
 
     def IIR(self, array, cutoffHz, type,octave_rolloff=6):
         """Apply an Infinite Impulse Response filter to the input signal                                                                        
@@ -973,13 +1050,15 @@ class MIR:
     def window(self):
         """Applies windowing to a frame"""  
         self.windowed_x = np.zeros(len(self.frame))
+        #print("WINDOWED X", self.windowed_x)    
         w = hann(self.M)
+        #print("W", w)    
         for i in range(self.H, self.M):
             self.windowed_x[i] = self.frame[i] * w[i]
         for i in range(0, self.H):
             self.windowed_x[i] = self.frame[i] * w[i]
 
-        self.windowed_x *= (2 / sum(abs(self.windowed_x)))
+        self.windowed_x *= (2 / np.sum(np.abs(self.windowed_x)))
 
     def fft(self, frame):
         N_min = int(self.N/32)     
@@ -1292,7 +1371,7 @@ class MIR:
                 if n_bins_in_bands[band_index] != 0:                                                                         
                     band_mean /= n_bins_in_bands[band_index]                                                                 
                 band_mean += min_real  
-                self.contrast_bands.append(range(int(spec_index),int(min(spec_index + n_bins_in_bands[band_index], self.magnitude_spectrum.size))))
+                self.contrast_bands.append(list(range(int(spec_index),int(min(spec_index + n_bins_in_bands[band_index], self.magnitude_spectrum.size)))))
                 self.magnitude_spectrum[int(spec_index):int(min(spec_index + n_bins_in_bands[band_index], self.magnitude_spectrum.size))] = sorted(self.magnitude_spectrum[spec_index:min(spec_index + n_bins_in_bands[band_index], self.magnitude_spectrum.size)])                       
                 nn_bins = round(0.4* n_bins_in_bands[band_index])                                                     
                 if nn_bins < 1:                                                                                       
@@ -1356,10 +1435,10 @@ class MIR:
         _pitchContinuityInBins = pitchContinuity * 1000.0 * self.H / self.fs / binResolution;        
         #bestPeakDistance = _pitchContinuityInBins
         bestPeakDistance = 20
-        print('bins', len(peaksBins), 'at index', i)
+        print(('bins', len(peaksBins), 'at index', i))
         for j in range(len(peaksBins[i])):
             previousBin = contourBins[0] if backward else contourBins[-1]
-            print('prevBin', previousBin, 'pBins', peaksBins[i][j])
+            print(('prevBin', previousBin, 'pBins', peaksBins[i][j]))
             distance = abs(previousBin - peaksBins[i][j])
             #print('Current distance', distance)
             if (distance < bestPeakDistance):
@@ -1399,7 +1478,7 @@ class MIR:
             if len(_salientPeaksBins) < i:
                 return bins, saliences, index, _salientPeaksBins, _salientPeaksValues, _nonSalientPeaksBins, _nonSalientPeaksValues 
             best_peak_j = self.findNextPeak(_salientPeaksBins, bins, i, True)
-            print( '1335 BEST PEAK', i )
+            print(( '1335 BEST PEAK', i ))
             if best_peak_j >= 0:
                 bins.append(_salientPeaksBins[index][best_peak_j])
                 saliences.append(_salientPeaksValues[index][best_peak_j])   
@@ -1428,8 +1507,8 @@ class MIR:
                 bins = []
                 saliences = []
             return bins, saliences, index, _salientPeaksBins, _salientPeaksValues, _nonSalientPeaksBins, _nonSalientPeaksValues 
-        print('1364 Saliences', saliences, len(_salientPeaksValues))
-        print('1365 Bins', bins, len(_salientPeaksBins))            
+        print(('1364 Saliences', saliences, len(_salientPeaksValues)))
+        print(('1365 Bins', bins, len(_salientPeaksBins)))            
         gap = 0
         for i in range(index-1,size_t):       	
             best_peak_j = self.findNextPeak(_salientPeaksBins, bins, i, True)
@@ -1536,7 +1615,7 @@ class MIR:
                 _salientPeaksBins[ii].append(self.salience_bins[ii][jj])
                 _salientPeaksValues[ii].append(self.salience_values[ii][jj])
                 if _salientPeaksBins[ii] != []:
-                   print('SALIENT PAIR IN SECONDS',i * 2048 / 48000)           
+                   print(('SALIENT PAIR IN SECONDS',i * 2048 / 48000))           
             size_t = ii
             size_t = jj          
 
@@ -1551,8 +1630,8 @@ class MIR:
 
         while True:
             bins, saliences, size_t, _salientPeaksBins, _salientPeaksValues, _nonSalientPeaksBins, _nonSalientPeaksValues = self.trackPitchContour(size_t, self.contour_bins, self.contour_saliences, _salientPeaksValues, _salientPeaksBins, _nonSalientPeaksValues, _nonSalientPeaksBins)           
-            print('Tracked bins:', bins, 'Tracked saliences:', saliences, 'Frames duration:', _minDurationInFrames)  
-            print('Contour bins and saliences:', self.contour_bins, self.contour_saliences)  
+            print(('Tracked bins:', bins, 'Tracked saliences:', saliences, 'Frames duration:', _minDurationInFrames))  
+            print(('Contour bins and saliences:', self.contour_bins, self.contour_saliences))  
             if (len(bins) > 0):
                 if (len(bins) >= _minDurationInFrames):
                     self.contoursStartTimes.append(size_t * _frameDuration)
@@ -2450,7 +2529,7 @@ def song_pitch_contours(song, bpm=120, psize=2):
     pthread = Pool(nodes=psize)
     song_copies = [song for frame in song.FrameGenerator()]    
     frame_copies = [frame for frame in song.FrameGenerator()]   
-    print('Starting thread with', len(song_copies),'copies')     
+    print(('Starting thread with', len(song_copies),'copies'))     
     pcomplete = 0
     bins = []
     values = []
@@ -2487,7 +2566,7 @@ def song_pitch_contours(song, bpm=120, psize=2):
             spec_data = pt.get()
             for data in range(len(spec_data)):
                 if len(salience_data[data][0]) != 0:
-                    print('SPEC DATA', spec_data[data])
+                    print(('SPEC DATA', spec_data[data]))
                     spectral_peaks.append(spec_data[data][0])
                     spectral_freqs.append(spec_data[data][1])
             pcomplete += psize
@@ -2524,7 +2603,7 @@ def process_high_res_features(song, frame, i):
         pcp = hpcp(song,96)
         #print('PCP', pcp)
         hr_feat = high_res_features(pcp)
-        print('HR FEAT', np.array(hr_feat).shape)
+        print(('HR FEAT', np.array(hr_feat).shape))
         return hr_feat
     except Exception as e:
         logger.exception(e)
@@ -3006,4 +3085,5 @@ def ChordsDetection(hpcps, song):
             continue
         chords.append((key + scale, firstto_2ndrelative_strength))
     return chords   
+
 
