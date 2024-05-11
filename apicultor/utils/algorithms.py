@@ -982,7 +982,7 @@ class MIR:
         a[0] = 1.0
         a[1] = d*(1.0-c)
         a[2] = -c
-        output = lfilter(b,a,array) * 1
+        output = lfilter(b,a,array) * -1
         return output 
 
     def AllPass(self, cutoffHz, q):
@@ -1276,6 +1276,7 @@ class MIR:
 
     def bpm(self):   
         """Computes tempo of a signal in Beats Per Minute with its tempo onsets""" 
+        #bayes error
         self.onsets_strength()                                                             
         n = len(self.envelope) 
         win_length = np.asscalar(np.array([int(np.floor(8*48000/self.H))]))
@@ -1289,7 +1290,8 @@ class MIR:
         f = np.array(f)[:,:n]              
         self.windowed_x = f * ac_window[:, np.newaxis]
         self.autocorrelation()
-
+        
+        #human error
         tempogram = self.correlation
 
         bin_frequencies = np.zeros(int(tempogram.shape[0]), dtype=np.float)
@@ -1651,7 +1653,7 @@ class MIR:
         self.salience_values = peaks
         self.salience_bins = bins
 
-    def spectral_peaks(self, interpolate=True):
+    def spectral_peaks(self, interpolate=True, highf_cut=22000, lowf_cut= 20, size = 456):
         """Computes magnitudes and frequencies of a frame of the input signal by peak interpolation"""
         self.peak_thres = 0
         thresh = np.where(self.magnitude_spectrum[1:-1] > self.peak_thres, self.magnitude_spectrum[1:-1], 0)            
@@ -1675,11 +1677,16 @@ class MIR:
             self.magnitudes = self.magnitude_spectrum - 0.25 * (lval - rval) * (iploc)
             self.frequencies = (self.fs/2) * iploc / self.N    
         if interpolate == True:    
-            bound = np.where(self.frequencies < 22000) #only get frequencies lower than 5000 Hz
-            self.magnitudes = self.magnitudes[bound][:456] #we use only 100 magnitudes and frequencies
-            self.frequencies = self.frequencies[bound][:456]
+            bound = np.where(self.frequencies < highf_cut) #only get frequencies lower than 5000 Hz
+            self.magnitudes = self.magnitudes[bound][:size] #we use only 100 magnitudes and frequencies
+            self.frequencies = self.frequencies[bound][:size]
+            self.frequencies, indexes = np.unique(self.frequencies, return_index = True)
+            bound = np.where(lowf_cut < self.frequencies) #only get frequencies lower than 5000 Hz
+            self.magnitudes = self.magnitudes[bound][:size] #we use only 100 magnitudes and frequencies
+            self.frequencies = self.frequencies[bound][:size]
             self.frequencies, indexes = np.unique(self.frequencies, return_index = True)
             self.magnitudes = self.magnitudes[indexes]
+
 
     def fundamental_frequency(self):
         """Compute the fundamental frequency of the frame frequencies and magnitudes"""
@@ -3085,5 +3092,6 @@ def ChordsDetection(hpcps, song):
             continue
         chords.append((key + scale, firstto_2ndrelative_strength))
     return chords   
+
 
 
