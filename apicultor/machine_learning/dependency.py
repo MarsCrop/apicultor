@@ -13,10 +13,16 @@ def BTC(y, yhat):
     istarget_prev = 1e-4
     istarget_dep = 1e-4
     if y[0].size > 1:
-        y = sigmoid(y)
-        yhat = sigmoid(yhat)
-        y = np.argmax(np.array(y),axis=1)
-        yhat = np.argmax(np.array(yhat),axis=1)       	
+        if attention == False:
+            y = sigmoid(y)
+            yhat = sigmoid(yhat)
+            y = np.argmax(np.array(y),axis=1)
+            yhat = np.argmax(np.array(yhat),axis=1)       	
+        else:
+            y = sigmoid(y)
+            yhat = sigmoid(yhat)
+            y = np.argmax(np.array(y),axis=0)
+            yhat = np.argmax(np.array(yhat),axis=0)    
     for i in np.unique(y):
         for j in range(len(y)):
             if y[j] == i:
@@ -31,7 +37,7 @@ def BTC(y, yhat):
     return hat_btcs
 
 
-def BEC(y, yhat, keep_index=None, return_array=None):
+def BEC(y, yhat, keep_index=None, return_array=None, attention=False):
     """
     Backward error compatibility measures relativity error between points updating their targets                                                           
     :param y: classes                                                                                         
@@ -49,8 +55,9 @@ def BEC(y, yhat, keep_index=None, return_array=None):
     if y[0].size > 1:
         y = sigmoid(y)
         yhat = sigmoid(yhat)
-        y = np.argmax(np.array(y),axis=1)
-        yhat = np.argmax(np.array(yhat),axis=1)   
+        if attention == False:
+            y = np.argmax(np.array(y),axis=1)            
+            yhat = np.argmax(np.array(yhat),axis=1)     
     for i in np.unique(y):
         if keep_index == None:
             iscon = []
@@ -94,3 +101,4 @@ def BEC(y, yhat, keep_index=None, return_array=None):
         istarget_prev = 1e-4
         istarget_con = 1e-4
     return hat_becs, hat_cons
+
