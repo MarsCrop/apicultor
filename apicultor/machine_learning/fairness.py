@@ -1,5 +1,13 @@
 import numpy as np
+import logging
+import warnings
+from ..gradients.subproblem import *
 
+warnings.simplefilter("ignore", ResourceWarning)
+warnings.simplefilter("ignore", RuntimeWarning)
+
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 def p_rule(y_predicted, y, theta, x, proba, thresh = 1e-4):
     """
@@ -8,7 +16,22 @@ def p_rule(y_predicted, y, theta, x, proba, thresh = 1e-4):
     If boundary error is independent of the product between dataset and regression,
     then statistical parity is satisfied and all data must be treated equally 
     """
-    significance = 1/(y.size*np.sum((y-y_predicted) * (theta @ x.T)))
+    try:
+        significance = 1/(y.size*np.sum((y-y_predicted) * np.multiply(theta, x.T)))
+    except Exception as e:
+        try:
+            significance = 1/(y.size*np.sum((y-y_predicted) * np.multiply(theta.T, x)))
+        except Exception as e:
+            x_count_rows = [len(np.array(arr)) for arr in x]
+            theta_count_rows = [len(np.array(arr)) for arr in theta]        
+            theta = satisfy_pad_requirements(theta_count_rows, theta_count_rows, theta, is_vector=True)
+            x = satisfy_pad_requirements(x_count_rows, x_count_rows, x, is_vector=True)
+            weighted_samples = np.multiply(theta, x)
+            try:
+                significance = 1/(y.size*np.sum((y-y_predicted) * weighted_samples))
+            except Exception as e:
+                significance = 1/(y.size*np.sum(np.multiply((y-y_predicted).T, weighted_samples)))
+
     thresh = 2
     #print('Significance is', significance, 'WITH THRESHOLD OF', thresh)
     if -(thresh) < significance < thresh:
@@ -42,3 +65,4 @@ def group_fairness(fairness):
     """Given a conditional parity between all binary problems, return global probability of being assigned to all targets
     """
     return fairness**2
+
