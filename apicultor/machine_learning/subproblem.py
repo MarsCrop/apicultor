@@ -216,13 +216,7 @@ def continuous_decode(features, targets, context, batch_size=5000, do_forward = 
         continuous_attention_function.append(attention_function)                
         if do_forward == True:                
             #Issue forwarding
-            print("TARGETS SHAPE", np.mat(targets[bin:bend]).T.shape)
-            print("ATTENTION FUNCTION", attention_function[bin:bend].shape)
-            print("ATTENDING FEATURES", attending_features[bin:bend].shape)            
-            if np.mat(targets[bin:bend]).T.shape[1] ==  attention_function.shape[0]:
-                attention_y, attention_scores, attention_function_weights_proba, forwarded_context = asyncio.run(parallel([1],1, (attention_function, attending_features, np.mat(targets[bin:bend]).T, 1.5, len(features)), func=forward, index = False, shared=False, fifo = False, lifc = False, continuous = batch))[0]
-            else:
-                attention_y, attention_scores, attention_function_weights_proba, forwarded_context = asyncio.run(parallel([1],1, (attention_function[bin:bend], attending_features[bin:bend], np.mat(targets[bin:bend]).T, 1.5, len(features)), func=forward, index = False, shared=False, fifo = False, lifc = False, continuous = batch))[0]         
+            attention_y, attention_scores, attention_function_weights_proba, forwarded_context = asyncio.run(parallel([1],1, (attention_function, attending_features, np.mat(targets[bin:bend]).T, 1.5, len(features)), func=forward, index = False, shared=False, fifo = False, lifc = False, continuous = batch))[0]
             if len(context) == 1:
                 context = context.T           
             elif len(context) == 0:

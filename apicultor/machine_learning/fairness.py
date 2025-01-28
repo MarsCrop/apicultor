@@ -30,7 +30,10 @@ def p_rule(y_predicted, y, theta, x, proba, thresh = 1e-4):
             try:
                 significance = 1/(y.size*np.sum((y-y_predicted) * weighted_samples))
             except Exception as e:
-                significance = 1/(y.size*np.sum(np.multiply((y-y_predicted).T, weighted_samples)))
+                try:
+                    significance = 1/(y.size*np.sum(np.multiply((y-y_predicted).T, weighted_samples)))
+                except Exception as e:  # Log every 10 seconds
+                    significance = 1/(y.size*np.sum((y-y_predicted).dot(weighted_samples.T)))
 
     thresh = 2
     #print('Significance is', significance, 'WITH THRESHOLD OF', thresh)
@@ -47,7 +50,10 @@ def unprotection_score(old_loss, fx, y):
     """
     A measure of conditional procedure accuracy equality (disparate mistreatment) between binary instances
     """
-    new_loss = np.mean((y-np.sign(fx))**2)
+    try:
+        new_loss = np.mean((y-np.sign(fx))**2)
+    except Exception as e:
+        new_loss = np.mean((np.square(y-np.sign(fx))))
     unprotected = ((1.0 + 1) * old_loss) - new_loss
     return unprotected
 

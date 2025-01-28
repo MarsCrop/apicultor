@@ -47,6 +47,8 @@ async def in_executor(loop, executor, func, args, timeout, recursion_size=False,
         print("RECURSION SIZE", recursion_size)
         if recursion_size != False:  # Use None to signal the end of processing
             args.insert(recursion_size[0], recursion_size[1]) 
+        print("FUNC", func)
+        print("ARGS", args)        
         if as_singular_matrix != False:  # Use None to signal the end of processing
             return await asyncio.wait_for(loop.run_in_executor(executor, func, args), timeout)
         else:  # Use None to signal the end of processing

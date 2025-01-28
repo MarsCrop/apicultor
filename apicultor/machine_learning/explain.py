@@ -105,28 +105,28 @@ async def compute_feature_importance(dset, inst=0):
             passing_scores.append(i)
         #print("CURRENT IMPORTANCE", scores[i])    
         importances.append( scores[i] ) #feature-wise      mean_importance = np.mean(np.array(importances),axis=1)
-        np.save("IMPORTANCE "+str(i)+' INSTANCE '+str(i)+'.npy',  scores[i])
+        #np.save("IMPORTANCE "+str(i)+' INSTANCE '+str(i)+'.npy',  scores[i])
     sizes = [len(i) for i in importances if len(i) != 46]
     min_len = min(sizes)
     #print("SIZES", sizes)
     #print("MIN LEN", min_len)
     mean_importance = np.mean(np.array([i[:min_len] for i in importances  if len(i) != 46] ),axis=1)  
     std_importance = np.std(np.array([i[:min_len] for i in importances  if len(i) != 46]),axis=1)  
-    print("MEAN IMPORTANCE", np.mean(mean_importance,axis=0), np.shape(mean_importance))     
-    print("STD IMPORTANCE", np.mean(std_importance,axis=0),  np.shape(mean_importance))
-    print("IMPORTANCES", np.array(np.array([i[:min_len] for i in importances  if len(i) != 46] ))) 
+    #print("MEAN IMPORTANCE", np.mean(mean_importance,axis=0), np.shape(mean_importance))     
+    #print("STD IMPORTANCE", np.mean(std_importance,axis=0),  np.shape(mean_importance))
+    #print("IMPORTANCES", np.array(np.array([i[:min_len] for i in importances  if len(i) != 46] ))) 
     return np.array([i[:min_len] for i in importances  if len(i) != 46] ), mean_importance, std_importance, len(mses), np.unique(passing_scores), passing_xs
 
 def forward_with_dropout(data_set, protected_groups=[], protected_lime = 0.8, importance_threshold = 0.2, protected_mse=0.2, error = [], protected_features = []):
     mses = np.load("IMPORTANT MSES.npy")
-    print("DATA SET", data_set)
+    #print("DATA SET", data_set)
     importances = []
     fdir = '/home/mc/sfs-python/sfs/'
     for f in list(os.walk(fdir))[0][-1]:
         print("LOADING",f)
         if 'IMPORTANCE' in f:
             importances.append(np.load(fdir+f))
-    print("IMPORTANCES", importances)    
+    #print("IMPORTANCES", importances)    
     importances = [i for i in importances  if len(i) != 1]
     min_len = np.min([len(i) for i in importances  if len(i) != 46])
     mean_importance_thresholds = np.mean(np.array([i[:min_len] for i in importances  if len(i) != 46] ),axis=1)
@@ -163,7 +163,11 @@ def forward_with_dropout(data_set, protected_groups=[], protected_lime = 0.8, im
         pass
     x, y = data_set[0], data_set[1]    
     attention_function, targets, attention_scores, weights, context = asyncio.run(parallel([1], 1, (y[:min_len], x[:min_len], wset[:min_len], 250, True), func=continuous_decode, shared=False, index=False))[0]
-    decoded_robustness = validate_non_discrimination_and_robustness(targets, context, attention_scores, y, weights, 1e-4, 0)
+    min_len = min(len(targets), len(context))
+    try:
+        decoded_robustness = validate_non_discrimination_and_robustness(targets, context, attention_scores, y, weights, 1e-4, 0)
+    except Exception as e:
+        decoded_robustness = validate_non_discrimination_and_robustness(targets[:min_len], context[:min_len], attention_scores[:min_len], y[:min_len], weights[:min_len], 1e-4, 0)
     mse_decoded = mse(targets, y)  
     return context    
 
@@ -178,10 +182,21 @@ def validate_non_discrimination_and_robustness(y, y_predicted, theta, x, proba, 
     :returns:                                                                                                         
       - robustness: robustness score from 0 to 1
     """
-    statistical_parity = np.float64(p_rule(y_predicted, y, theta, x, proba, thresh = 1e-4))
+    try:
+        statistical_parity = np.float64(p_rule(y_predicted, y, theta, x, proba, thresh = 1e-4))
+    except Exception as e:
+        min_len = min(len(y_predicted), len(y))
+        statistical_parity = np.float64(p_rule(y_predicted[:min_len], y[:min_len], theta, x, proba, thresh = 1e-4))
     #print("STATISTICAL PARITY", statistical_parity)
     xcontext = np.nan_to_num(asyncio.run(parallel([1], 1, (x, theta), func = context_vector, index = False, shared=False, fifo = False, lifc = False, continuous = False)))
-    conditional_procedure_accuracy_equality = unprotection_score(mse, xcontext, y_predicted)
+    try:
+        conditional_procedure_accuracy_equality = unprotection_score(mse, xcontext, y_predicted)
+    except Exception as e:
+        xcontext = xcontext[0]
+        min_len = min(len(xcontext), len(y_predicted))
+        print("XCONTEXT", xcontext.shape) 
+        print("YPREDICTED", y_predicted.shape)
+        conditional_procedure_accuracy_equality = unprotection_score(mse, xcontext[:min_len], y_predicted[:min_len])
     if type(conditional_procedure_accuracy_equality) == np.complex128:
         conditional_procedure_accuracy_equality = np.float64(conditional_procedure_accuracy_equality)
     #print("CONDITIONAL PROCEDURE ACCURACY EQUALITY", conditional_procedure_accuracy_equality, type(conditional_procedure_accuracy_equality))
@@ -354,7 +369,7 @@ async def dropout(data_set, protected_groups=[], protected_lime = 0.8, importanc
                             not_protected_group = np.where(np.logical_not(x[:,most_important_feature] > intersection))                    
                         wset[instance][i][not_protected_group] *= explaining_mask     
                         #print("IMPORTANCE MASK", importance_mask)
-                        print("Explaining mask:", explaining_mask)
+                        #print("Explaining mask:", explaining_mask)
                         #print("DROPPED OUT WEIGHTS", wset[instance][i])
                         droppedout_sets.append(wset[instance][i])
                         relevant_weights.append(widx)
@@ -437,11 +452,11 @@ async def dropout(data_set, protected_groups=[], protected_lime = 0.8, importanc
                 mse = mean_squared_error(np.array(np.float64(targets))[:min_len].reshape(min_len,-1)/np.array(np.float64(targets))[:min_len].max(), np.array(np.float64(y[:min_len].reshape(min_len,-1))))
                 if mse > 0.2:
                     continue
-                print("mse with dropout:", mse)
-                print("TARGETS SIZE", np.shape(targets))
-                print("TARGETS SIZE", np.shape(y))
+                #print("mse with dropout:", mse)
+                #print("TARGETS SIZE", np.shape(targets))
+                #print("TARGETS SIZE", np.shape(y))
                 decoded_robustness = validate_non_discrimination_and_robustness(targets[:min_len], context[:min_len], attention_scores[:min_len], y[:min_len], weights[:min_len], mse, 1e-4, 0)
-                print("Robustness:", decoded_robustness, 'size', len(x))
+                #print("Robustness:", decoded_robustness, 'size', len(x))
                 droppedout_context.append([x, y, targets, weights, len(x)])
             except Exception as e:
                 logger.exception(e)
@@ -522,9 +537,9 @@ async def explain(model, x, ys, limit, Idxs, logical=None, plot=None, fig=None, 
                     pos_idxs = np.where(noisy_x[:, idxs[yi]] > intersection)
                     neg_idxs = np.where(noisy_x[:, idxs[yi]] < intersection)
                 else:
-                    print(('WHERE', np.where(noisy_x[:min_len][:, idxs[yi]] > intersection)))
-                    print('INTERSECTION', intersection)
-                    print('IDXS',idxs)
+                    #print(('WHERE', np.where(noisy_x[:min_len][:, idxs[yi]] > intersection)))
+                    #print('INTERSECTION', intersection)
+                    #print('IDXS',idxs)
                     if attention == False:
                         if not ys[0].size > 1:
                             pos_explanation_scores.append(acc_score(ys[np.where(
@@ -564,9 +579,9 @@ async def explain(model, x, ys, limit, Idxs, logical=None, plot=None, fig=None, 
                     #noisy_x = noisy_x[np.where(
                     #    noisy_x[:, idxs[yi]] > intersection)[0]]
                     # concept drift
-                    print("YS", np.shape(targets))
+                    #print("YS", np.shape(targets))
                     pos_classes = targets[np.where(targets > intersection)]
-                    print("POS CLASSES", pos_classes)
+                    #print("POS CLASSES", pos_classes)
                     neg_classes = targets[np.where(np.logical_not(targets > intersection))]
                     pos_idxs = np.where(noisy_x[:min_len][:, idxs[yi]] > intersection)
                     neg_idxs = np.where(noisy_x[:min_len][:, idxs[yi]] < intersection)
