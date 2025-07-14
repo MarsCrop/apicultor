@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "apicultor"
+version = "3.0.1"
+description = "A description of your package"
+authors = [{name = "Your Name", email = "your.email@example.com"}]
+license = "MIT"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "some-package",
+]
+
+[tool.setuptools]
+# Either use find_namespace explicitly:
+packages = {find = {where = ["."], include = ["apicultor*"], namespaces = true}}
+
+# OR use the simpler approach:
+# packages = {find = {}}
+
+[tool.setuptools.package-data]
+apicultor = [
+    "supercollider/*.sc",
+    "supercollider/examples/*.sc",
+    "helper/*",
+    "state_machine/*",
+    "tests/*",
+    "utils/*"
+]
