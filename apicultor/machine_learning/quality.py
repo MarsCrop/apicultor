@@ -2,11 +2,12 @@
 # -*- coding: UTF-8 -*-
 
 from scipy.stats import pearsonr
-from ..constraints.dynamic_range import *
-from ..utils.algorithms import *
-from .lstm_synth_w import *
-from ..sonification.Sonification import normalize, write_file
+from apicultor.constraints.dynamic_range import *
+from apicultor.utils.algorithms import *
+from apicultor.machine_learning.lstm_synth_w import *
+from apicultor.sonification.Sonification import normalize, write_file
 import numpy as np
+import asyncio
 from pathos.pools import ProcessPool as Pool
 from scipy.fftpack import fft, ifft, fftfreq
 from scipy.signal import lfilter, fftconvolve, firwin, medfilt
@@ -859,67 +860,78 @@ def main():
         for subdir, dirs, files in os.walk(DATA_PATH):
             for f in files:
                 print(("Rewriting with LSTM Synthesis in %s" % f))
+                # 1. Read the audio
                 audio = read(DATA_PATH+'/'+f)[0]
 
+                # 2. Convert to mono/stereo if needed. This is generally safe and often a prerequisite for further processing.
                 audio = mono_stereo(audio)
-                # lstm synth model prediction
+
+                # 3. LSTM Synth Model Prediction (This is a creative/generative step)
+                # This step is likely transforming the audio in a fundamental way, and it should happen before
+                # any attempts to "clean" or "master" the audio for output, especially if Dolby is already present.
+                # It's producing "neural" audio, which is your new source.
                 neural = lstm_synth_predict(audio)
 
-                #print(( "Rewriting without clicks in %s"%f ))
-                # clickless = find_clicks(MIR(neural,44100)) #remove clicks
+                # --- Point of Dolby Consideration ---
+                # At this point, if your *original* 'audio' variable was the Dolby-encoded source,
+                # then 'neural' is the *result* of your model, which might or might not retain
+                # Dolby characteristics depending on what lstm_synth_predict does.
+                # If 'neural' is now your primary audio signal, the following steps will apply to *it*.
+                # If the goal is to process the *original* Dolby audio and then apply neural synthesis,
+                # the order might need to be rethought entirely. Assuming 'neural' is your primary working audio:
 
-                #print(( "Rewriting without hissings in %s"%f ))
-                # hissless = hiss_removal(clickless) #remove hiss
-                #print(( "Rewriting without crosstalk in %s"%f ))
-                # hrtf = read(sys.argv[2])[0] #load the hrtf wav file
-                #b = firwin(2, [0.05, 0.95], width=0.05, pass_zero=False)
-
-                #convolved = fftconvolve(hrtf, b, mode='valid')
-                #convolved = np.vstack((convolved,convolved))
-                #left = convolved[:int(convolved.shape[0]/2), :]
-                #right = convolved[int(convolved.shape[0]/2):, :]
-                #h_sig_L = lfilter(left.flatten(), 1., neural)
-                #h_sig_R = lfilter(right.flatten(), 1., neural)
-                #del hissless
-                #result = np.float32([h_sig_L, h_sig_R]).T
-                #neg_angle = result[:,(1,0)]
-                #panned = result + neg_angle
-                #normalized = normalize(panned)
-                #del normalized
-
+                # 4. Anti-aliasing filtering (Essential and generally safe)
+                # This removes frequencies above the sample rate, preventing digital artifacts.
+                # This should be done early in the post-synthesis chain to ensure a clean signal.
                 print(("Rewriting without aliasing in %s" % f))
-                song = sonify(neural, 48000)
-                # anti-aliasing filtering: erase frequencies higher than the sample rate being used
-                audio = song.IIR(song.x, 20000, 'lowpass')
+                song = sonify(neural, 48000) # Assuming sonify prepares 'neural' for processing
+                audio = song.IIR(song.x, 20000, 'lowpass') # Use 20kHz as a typical human hearing limit
+
+                # 5. Remove DC (Direct Current) offset (Essential and generally safe)
+                # DC offset can cause issues with playback devices and should be removed early.
                 print(("Rewriting without DC in %s" % f))
-                # remove direct current on audio signal
-                audio = song.IIR(audio, 40, 'highpass')
-                print(("Rewriting with Equal Loudness contour in %s" % f))
-                audio = song.EqualLoudness(audio)  # Equal-Loudness Contour
-                #print(( "Rewriting with RIAA filter applied in %s"%f ))
-                # riaa_filtered = biquad_filter(audio, abz)  #riaa filter
-                normalized_riaa = normalize(audio)
-                del audio
+                audio = song.IIR(audio, 40, 'highpass') # A low cut-off for DC removal
+
+                # 6. Hum removal (Noise reduction, generally safe *if applied carefully*)
+                # Removing specific hum frequencies (like 50/60 Hz) is a common and usually non-destructive process.
                 print(("Rewriting with Hum removal applied in %s" % f))
-                song.x = np.float32(normalized_riaa)
-                # remove undesired 50 hz hum
-                without_hum = song.BandReject(
-                    np.float32(normalized_riaa), 50, 16)
-                del normalized_riaa
+                song.x = np.float32(audio) # Ensure song.x is updated with the current audio state
+                without_hum = song.BandReject(np.float32(audio), 50, 16) # Apply hum removal
+                del audio # Clean up for memory
+
+                # 7. Subsonic rumble removal (Noise reduction, generally safe)
+                # Removes very low frequencies that can be problematic for playback systems but are inaudible.
                 print(("Rewriting with subsonic rumble removal applied in %s" % f))
-                song.x = without_hum
-                # remove subsonic rumble
-                without_rumble = song.IIR(song.x, 20, 'highpass')
-                del without_hum
-                # calculate silence if present in audio signal
-                db_mag = 20 * np.log10(abs(without_rumble))
+                song.x = without_hum # Update song.x again
+                without_rumble = song.IIR(song.x, 20, 'highpass') # Remove frequencies below 20Hz
+                del without_hum # Clean up for memory
+
+                # 8. Normalize (Crucial before any psychoacoustic processing or final output)
+                # Normalization brings the audio to an optimal level without clipping.
+                # It's important to do this *before* Equal Loudness or any RIAA if you were to reintroduce it.
+                normalized_audio = normalize(without_rumble)
+                del without_rumble
+
+                # 9. Equal Loudness Contour (Psychoacoustic processing, *after* normalization)
+                # This attempts to adjust the frequency response to match human hearing perception at different loudness levels.
+                # This is a creative/enhancement step and should generally be applied late in the chain.
+                print(("Rewriting with Equal Loudness contour in %s" % f))
+                song.x = np.float32(normalized_audio) # Update song.x with normalized audio
+                audio = song.EqualLoudness(normalized_audio)
+                del normalized_audio
+
+                # 10. Silence removal (Cleanup, generally safe)
+                # This is a final cleanup step to remove completely silent portions.
+                # It relies on the magnitude (loudness) of the signal, so it should be done after
+                # all other processing that affects volume or frequency content.
+                db_mag = 20 * np.log10(abs(audio))
                 print(("Rewriting without silence in %s" % f))
-                silence_threshold = -130  # complete silence
-                loud_audio = np.delete(without_rumble, np.where(
-                    db_mag < silence_threshold))  # remove it
-                write_file(subdir+'/'+os.path.splitext(f)
-                           [0], 48000, loud_audio)
-                #del without_rumble
+                silence_threshold = -130 # complete silence
+                loud_audio = np.delete(audio, np.where(db_mag < silence_threshold)) # remove it
+                del audio
+
+                # 11. Write the final file
+                write_file(subdir+'/'+os.path.splitext(f)[0], 48000, loud_audio)
 
     except Exception as e:
         logger.exception(e)
@@ -927,4 +939,5 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    asyncio.run(main())
+
