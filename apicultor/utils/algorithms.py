@@ -7,10 +7,10 @@ from soundfile import read
 from scipy.fftpack import fft, ifft
 from collections import Counter
 from pathos.pools import ProcessPool as Pool
-from ..machine_learning.cache import memoize
-from ..gradients.ascent import *
-from ..gradients.descent import *
-from ..sonification.Sonification import *
+from apicultor.machine_learning.cache import memoize
+from apicultor.gradients.ascent import *
+from apicultor.gradients.descent import *
+from apicultor.sonification.Sonification import *
 import random
 import cmath
 #from apicultor.machine_learning.quality import *
@@ -24,7 +24,6 @@ from time import sleep
 #you should comment what you've already processed (avoid over-processing) 
 warnings.filterwarnings("ignore", category=FutureWarning) 
 warnings.filterwarnings("ignore", category=SyntaxWarning) 
-warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning) 
 logging.basicConfig(level=logging.DEBUG)
 logging.disable(logging.WARNING)
 logger = logging.getLogger(__name__)
@@ -3092,6 +3091,7 @@ def ChordsDetection(hpcps, song):
             continue
         chords.append((key + scale, firstto_2ndrelative_strength))
     return chords   
+
 
 
 
