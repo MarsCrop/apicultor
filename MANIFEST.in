@@ -1,0 +1,20 @@
+include apicultor/supercollider/live_coding.sc
+include apicultor/supercollider/*.sc
+include apicultor/supercollider/examples/*.sc
+recursive-include apicultor *.sc
+include apicultor/supercollider/setup_performance.sc
+include apicultor/supercollider/examples/magfreeze.sc
+include apicultor/supercollider/examples/magfreeze.sc
+include apicultor/supercollider/examples/osc_server_and_player.sc
+include apicultor/supercollider/examples/playmp3list_envelope.sc
+include apicultor/helper/download-test-data.sh
+include apicultor/state_machine/composition1.json
+include apicultor/state_machine/composition1_diagram.js
+include apicultor/state_machine/simple_3states_composition.json
+include apicultor/tests/APICultor.postman_collection.json
+include apicultor/utils/run_docker_ws.sh
+include apicultor/utils/run_freesound_scripts.sh
+include apicultor/utils/run_state.sh
+include apicultor/utils/run_state_machine.sh
+include apicultor/utils/run_tests.sh
+include apicultor/utils/soundwork.sh

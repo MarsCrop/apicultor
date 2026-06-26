@@ -1,0 +1,13 @@
+Traceback (most recent call last):
+  File "/home/mc/Descargas/apicultor-master/run_full_pipeline.py", line 8029, in run_baseline_worker_async
+    aoc_val  = await evaluate_aoc_metrics(model.predict, X_val,  Y_val,  "Val")
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/mc/Descargas/apicultor-master/run_full_pipeline.py", line 3971, in evaluate_aoc_metrics
+    rob   = compute_robustness(model_fn, X, Y)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/mc/Descargas/apicultor-master/run_full_pipeline.py", line 3938, in compute_robustness
+    base_preds = base_preds[0]
+                 ~~~~~~~~~~^^^
+TypeError: 'coroutine' object is not subscriptable
+
+Worker failed: cannot access local variable 'aoc_test' where it is not associated with a value

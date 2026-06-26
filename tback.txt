@@ -1,0 +1,68 @@
+root@mc:/home/mc/Descargas/apicultor-master# python3 run_full_pipeline.py --audio_dir sounds --occluded_dir sounds --output_dir outputs --occlusion_ratio 0.73 --n_adversaries 3 --num_rollouts 3 --log_level INFO
+/usr/local/lib/python3.11/dist-packages/matplotlib/projections/__init__.py:63: UserWarning: Unable to import Axes3D. This may be due to multiple versions of Matplotlib being installed (e.g. as a system package and as a pip package). As a result, the 3D projection is not available.
+  warnings.warn("Unable to import Axes3D. This may be due to multiple versions of "
+2026-03-16 18:17:47,809 [INFO] AOC_Pipeline — ======================================================================
+2026-03-16 18:17:47,810 [INFO] AOC_Pipeline — ETAPA 0 — Carga de audios reales
+2026-03-16 18:17:47,810 [INFO] AOC_Pipeline — ======================================================================
+2026-03-16 18:17:47,810 [INFO] AOC_Pipeline — [Etapa 0] No se encontró caché — procesando desde audio.
+2026-03-16 18:28:38,816 [INFO] AOC_Pipeline — [Audio] 40 archivos cargados, 0 omitidos. Total frames: 363835 × 1025 bins
+2026-03-16 18:28:39,066 [INFO] AOC_Pipeline — [Etapa 0] Total frames cargados: 363835  Bins: 1025
+2026-03-16 18:28:39,077 [INFO] AOC_Pipeline — [Etapa 0] Dataset recortado: 363835 → 30000 frames (límite MAX_FRAMES=30000)
+2026-03-16 18:28:39,207 [INFO] AOC_Pipeline — [Etapa 0] Train=24000  Val=3000  Test=3000
+2026-03-16 18:28:39,213 [INFO] AOC_Pipeline — ======================================================================
+2026-03-16 18:28:39,215 [INFO] AOC_Pipeline — ETAPA 1 — Pre-entrenamiento Ridge + MLP (frames STFT reales)
+2026-03-16 18:28:39,217 [INFO] AOC_Pipeline — ======================================================================
+2026-03-16 18:28:44,958 [INFO] AOC_Pipeline — [Pretrain] Iniciando pre-entrenamiento Ridge + MLP sobre audios reales ...
+2026-03-16 18:29:25,101 [INFO] AOC_Pipeline — [Pretrain/Ridge] MSE=0.000000  SNR=79.44dB
+2026-03-16 18:39:38,876 [INFO] AOC_Pipeline — [Pretrain/MLP] MSE=0.000028  SNR=3.33dB
+2026-03-16 18:39:38,876 [INFO] AOC_Pipeline — [Pretrain] Mejor pre-entreno: Ridge (MSE=0.000000)
+2026-03-16 18:39:41,753 [INFO] AOC_Pipeline — [Etapa 1] Datasets guardados en outputs
+2026-03-16 18:39:41,754 [INFO] AOC_Pipeline — ======================================================================
+2026-03-16 18:39:41,754 [INFO] AOC_Pipeline — ETAPA 2 — Cross-validation adversaria (DSVM nativo)
+2026-03-16 18:39:41,754 [INFO] AOC_Pipeline — ======================================================================
+2026-03-16 18:39:41,760 [WARNING] AOC_Pipeline — DSVMWrapper: no se proporcionó modelo DSVM real. Usando Ridge como fallback solo para entornos de prueba.
+2026-03-16 18:40:00,597 [INFO] AOC_Pipeline — [CV Adversarial] 2000 frames, 3 C-values, 3 adversarios
+2026-03-16 18:40:00,597 [INFO] AOC_Pipeline — [CV Adversarial] Ejecutando GridSearch...
+CS [[0.01, 0.1, 1.0]]
+FEATURES TRAIN (1600, 1025)
+TARGETS TRAIN (1600, 1025)
+2026-03-16 18:40:01,609 [ERROR] AOC_Pipeline — [CV Adversarial] GridSearch falló: property 'w' of 'DSVMWrapper' object has no setter
+2026-03-16 18:40:01,609 [INFO] AOC_Pipeline — [CV Adversarial] Construyendo datos adversarios desde audios...
+UNEQUAL TREATMENT FACTOR 0.2
+ADVERSARY SET SIZE 2000
+DATASET SHAPE TO IMPUTE (2000, 1025)
+2026-03-16 18:40:01,750 [WARNING] AOC_Pipeline — [CV Adversarial] define_adversary_data falló: cannot access local variable 'imputed_dataset' where it is not associated with a value
+2026-03-16 18:40:01,751 [INFO] AOC_Pipeline — [CV Adversarial] Evaluando BEC/BTC con datos adversarios...
+2026-03-16 18:40:01,923 [INFO] AOC_Pipeline — [CV Adversarial] BEC=0.0100  BTC=0.0000  Conflictos=100
+2026-03-16 18:40:01,924 [INFO] AOC_Pipeline — [CV Adversarial] Verificando paridad estadística (p_rule)...
+2026-03-16 18:40:01,977 [WARNING] AOC_Pipeline — [CV Adversarial] p_rule falló: shapes (100,) and (1025,100) not aligned: 100 (dim 0) != 1025 (dim 0)
+2026-03-16 18:40:01,978 [INFO] AOC_Pipeline — ======================================================================
+2026-03-16 18:40:01,978 [INFO] AOC_Pipeline — ETAPA 3 — Evaluación multi-métrica AOC
+2026-03-16 18:40:01,979 [INFO] AOC_Pipeline — ======================================================================
+2026-03-16 18:40:07,292 [INFO] AOC_Pipeline — [Val] MSE=0.00005  SNR=0.48dB  LSD=17.3466  TC=1.0000  Rob=1.0000
+2026-03-16 18:40:12,515 [INFO] AOC_Pipeline — [Test] MSE=0.00005  SNR=0.41dB  LSD=17.1474  TC=1.0000  Rob=1.0000
+2026-03-16 18:40:12,536 [INFO] AOC_Pipeline — [Etapa 3] Calibración de incertidumbre...
+2026-03-16 18:40:12,606 [INFO] AOC_Pipeline — [Etapa 3] Incertidumbre media=6.9324
+2026-03-16 18:40:12,606 [INFO] AOC_Pipeline — [Etapa 4] Post-entrenamiento omitido (--post_train no activado).
+2026-03-16 18:40:12,607 [INFO] AOC_Pipeline — ======================================================================
+2026-03-16 18:40:12,607 [INFO] AOC_Pipeline — ETAPA 5 — Guardado de resultados
+2026-03-16 18:40:12,607 [INFO] AOC_Pipeline — ======================================================================
+2026-03-16 18:40:12,630 [INFO] AOC_Pipeline — [Etapa 5] Reporte guardado en outputs/pipeline_results.json
+2026-03-16 18:40:12,873 [INFO] AOC_Pipeline — [Audio] Guardado: outputs/sample_occluded.wav
+2026-03-16 18:40:12,875 [INFO] AOC_Pipeline — [Audio] Guardado: outputs/sample_estimated.wav
+2026-03-16 18:40:12,876 [INFO] AOC_Pipeline — [Audio] Guardado: outputs/sample_clean.wav
+2026-03-16 18:40:12,876 [INFO] AOC_Pipeline — ======================================================================
+2026-03-16 18:40:12,876 [INFO] AOC_Pipeline — RESUMEN FINAL DEL PIPELINE AOC
+2026-03-16 18:40:12,877 [INFO] AOC_Pipeline — ======================================================================
+2026-03-16 18:40:12,877 [INFO] AOC_Pipeline —   SNR final:                  0.41 dB
+2026-03-16 18:40:12,878 [INFO] AOC_Pipeline —   MSE final:                  0.000048
+2026-03-16 18:40:12,878 [INFO] AOC_Pipeline —   Distorsión espectral (LSD): 17.1474
+2026-03-16 18:40:12,879 [INFO] AOC_Pipeline —   Consistencia temporal:      1.0000
+2026-03-16 18:40:12,879 [INFO] AOC_Pipeline —   Robustez adversaria:        1.0000
+2026-03-16 18:40:12,880 [INFO] AOC_Pipeline —   BEC adversario medio:       0.0100
+2026-03-16 18:40:12,880 [INFO] AOC_Pipeline —   BTC adversario medio:       0.0000
+2026-03-16 18:40:12,880 [INFO] AOC_Pipeline —   p_rule (paridad):           0.0000
+2026-03-16 18:40:12,881 [INFO] AOC_Pipeline — 
+  Reporte completo: outputs/pipeline_results.json
+2026-03-16 18:40:12,881 [INFO] AOC_Pipeline — ======================================================================
+root@mc:/home/mc/Descargas/apicultor-master# 

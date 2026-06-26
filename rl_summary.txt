@@ -1,0 +1,14 @@
+================================================================================
+RESUMEN DE RL - SERIE DE ROLLOUTS
+================================================================================
+
+Total rollouts procesados: 4000
+Recompensa media: 0.8788
+Score constitucional medio: -0.3536
+
+VIOLACIONES POR PRINCIPIO:
+  - factuality_hallucination: 3538 violaciones
+  - overconfidence_miscalibration: 3422 violaciones
+  - distribution_shift_fragility: 3935 violaciones
+  - reasoning_math_logic_code: 3718 violaciones
+  - toxicity_bias: 3 violaciones

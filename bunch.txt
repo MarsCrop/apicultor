@@ -1,0 +1,359 @@
+# ============================================================================
+# CLASE PARA GESTIONAR BASELINE MODELS POR ITERACIÓN
+# ============================================================================
+
+class BaselineModelManager:
+    """
+    Gestiona el guardado de modelos baseline por iteración (cada 4000 muestras).
+    Organiza teachers, students, memorias y resultados por nombre de baseline.
+    """
+    
+    def __init__(self, base_output_dir: str, baseline_name: str = None):
+        self.base_output_dir = base_output_dir
+        self.baseline_name = baseline_name or f"baseline_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        self.baseline_dir = os.path.join(base_output_dir, self.baseline_name)
+        self.iteration = 0
+        self.samples_processed = 0
+        self.ITERATION_SIZE = 4000  # Cada 4000 muestras se guarda baseline
+        
+        # Crear estructura de directorios
+        self._create_directory_structure()
+        
+        # Historial de baselines
+        self.baseline_history = []
+        self.current_checkpoint = None
+        
+    def _create_directory_structure(self):
+        """Crea la estructura de directorios para esta baseline"""
+        os.makedirs(self.baseline_dir, exist_ok=True)
+        
+        # Subdirectorios
+        self.models_dir = os.path.join(self.baseline_dir, "models")
+        self.memories_dir = os.path.join(self.baseline_dir, "memories")
+        self.teachers_dir = os.path.join(self.baseline_dir, "teachers")
+        self.students_dir = os.path.join(self.baseline_dir, "students")
+        self.audios_dir = os.path.join(self.baseline_dir, "audios")
+        self.results_dir = os.path.join(self.baseline_dir, "results")
+        
+        for d in [self.models_dir, self.memories_dir, self.teachers_dir, 
+                  self.students_dir, self.audios_dir, self.results_dir]:
+            os.makedirs(d, exist_ok=True)
+            
+        logger.info(f"[BaselineManager] Estructura creada en {self.baseline_dir}")
+    
+    def update_samples_processed(self, n_samples: int):
+        """Actualiza contador de muestras procesadas"""
+        self.samples_processed += n_samples
+        logger.info(f"[BaselineManager] Procesadas {self.samples_processed} muestras totales")
+        
+        # Verificar si hay que guardar nueva baseline
+        if self.samples_processed >= (self.iteration + 1) * self.ITERATION_SIZE:
+            self.save_baseline()
+    
+    def save_baseline(self):
+        """Guarda baseline actual (modelo, memoria, teacher, student)"""
+        self.iteration += 1
+        iteration_dir = os.path.join(self.baseline_dir, f"iter_{self.iteration:04d}")
+        os.makedirs(iteration_dir, exist_ok=True)
+        
+        baseline_info = {
+            'iteration': self.iteration,
+            'samples_processed': self.samples_processed,
+            'timestamp': datetime.now().isoformat(),
+            'iteration_dir': iteration_dir
+        }
+        
+        self.baseline_history.append(baseline_info)
+        
+        # Guardar metadata
+        metadata_path = os.path.join(iteration_dir, "baseline_metadata.json")
+        with open(metadata_path, "w") as f:
+            json.dump(baseline_info, f, indent=2)
+            
+        logger.info(f"[BaselineManager] Baseline {self.iteration} guardada en {iteration_dir}")
+        return iteration_dir
+    
+    def save_model(self, model, name: str, iteration: int = None):
+        """Guarda un modelo (DSVM, teacher, student)"""
+        if iteration is None:
+            iteration = self.iteration
+        iter_dir = os.path.join(self.baseline_dir, f"iter_{iteration:04d}")
+        
+        model_path = os.path.join(iter_dir, f"{name}.pkl")
+        with open(model_path, "wb") as f:
+            pickle.dump(model, f)
+        logger.info(f"[BaselineManager] Modelo {name} guardado en {model_path}")
+        return model_path
+    
+    def save_memory(self, memory: AgentMemory, name: str, iteration: int = None):
+        """Guarda el estado de la memoria del agente"""
+        if iteration is None:
+            iteration = self.iteration
+        iter_dir = os.path.join(self.baseline_dir, f"iter_{iteration:04d}")
+        
+        memory_path = os.path.join(iter_dir, f"memory_{name}.pkl")
+        with open(memory_path, "wb") as f:
+            pickle.dump({
+                'long_term': memory.long_term,
+                'mid_term': memory.mid_term,
+                'short_term': memory.short_term,
+                'memory_stats': memory.memory_stats,
+                'consolidation_queue': memory.consolidation_queue
+            }, f)
+        logger.info(f"[BaselineManager] Memoria {name} guardada en {memory_path}")
+        return memory_path
+    
+    def save_audio_samples(self, X_samples: np.ndarray, Y_samples: np.ndarray, 
+                           predictions: np.ndarray, iteration: int = None):
+        """Guarda muestras de audio procesadas"""
+        if iteration is None:
+            iteration = self.iteration
+        iter_dir = os.path.join(self.baseline_dir, f"iter_{iteration:04d}")
+        audio_dir = os.path.join(iter_dir, "audio_samples")
+        os.makedirs(audio_dir, exist_ok=True)
+        
+        # Guardar como numpy arrays
+        np.save(os.path.join(audio_dir, "X_input.npy"), X_samples)
+        np.save(os.path.join(audio_dir, "Y_target.npy"), Y_samples)
+        np.save(os.path.join(audio_dir, "predictions.npy"), predictions)
+        
+        # Guardar metadatos de audio
+        audio_meta = {
+            'n_samples': len(X_samples),
+            'shape': X_samples.shape,
+            'timestamp': datetime.now().isoformat(),
+            'iteration': iteration
+        }
+        with open(os.path.join(audio_dir, "audio_metadata.json"), "w") as f:
+            json.dump(audio_meta, f, indent=2)
+            
+        logger.info(f"[BaselineManager] {len(X_samples)} muestras de audio guardadas")
+    
+    def save_teacher_student_pair(self, teacher_model, student_model, 
+                                   distillation_result: Dict, iteration: int = None):
+        """Guarda par teacher-student con resultados de distillation"""
+        if iteration is None:
+            iteration = self.iteration
+        iter_dir = os.path.join(self.baseline_dir, f"iter_{iteration:04d}")
+        
+        # Guardar modelos
+        teacher_path = self.save_model(teacher_model, "teacher", iteration)
+        student_path = self.save_model(student_model, "student", iteration)
+        
+        # Guardar resultados de distillation
+        distillation_path = os.path.join(iter_dir, "distillation_results.json")
+        with open(distillation_path, "w") as f:
+            json.dump(distillation_result, f, indent=2)
+            
+        logger.info(f"[BaselineManager] Teacher-student pair guardados (iter {iteration})")
+        
+        return {
+            'teacher_path': teacher_path,
+            'student_path': student_path,
+            'distillation_path': distillation_path
+        }
+    
+    def load_baseline(self, iteration: int):
+        """Carga una baseline específica"""
+        iter_dir = os.path.join(self.baseline_dir, f"iter_{iteration:04d}")
+        
+        if not os.path.exists(iter_dir):
+            logger.error(f"[BaselineManager] Baseline {iteration} no encontrada en {iter_dir}")
+            return None
+            
+        # Cargar metadata
+        metadata_path = os.path.join(iter_dir, "baseline_metadata.json")
+        with open(metadata_path, "r") as f:
+            baseline_info = json.load(f)
+            
+        # Cargar modelos si existen
+        models = {}
+        for model_name in ['dsvm_main', 'teacher', 'student']:
+            model_path = os.path.join(iter_dir, f"{model_name}.pkl")
+            if os.path.exists(model_path):
+                with open(model_path, "rb") as f:
+                    models[model_name] = pickle.load(f)
+                    
+        # Cargar memorias
+        memories = {}
+        for mem_name in ['agent_memory', 'long_term', 'mid_term', 'short_term']:
+            mem_path = os.path.join(iter_dir, f"memory_{mem_name}.pkl")
+            if os.path.exists(mem_path):
+                with open(mem_path, "rb") as f:
+                    memories[mem_name] = pickle.load(f)
+                    
+        # Cargar resultados de distillation
+        distillation_path = os.path.join(iter_dir, "distillation_results.json")
+        distillation_results = None
+        if os.path.exists(distillation_path):
+            with open(distillation_path, "r") as f:
+                distillation_results = json.load(f)
+                
+        logger.info(f"[BaselineManager] Baseline {iteration} cargada")
+        
+        return {
+            'baseline_info': baseline_info,
+            'models': models,
+            'memories': memories,
+            'distillation_results': distillation_results,
+            'iteration_dir': iter_dir
+        }
+    
+    def get_latest_baseline(self):
+        """Obtiene la baseline más reciente"""
+        if not self.baseline_history:
+            return None
+        latest = max(self.baseline_history, key=lambda x: x['iteration'])
+        return self.load_baseline(latest['iteration'])
+    
+    def list_baselines(self) -> List[Dict]:
+        """Lista todas las baselines guardadas"""
+        return self.baseline_history
+    
+    def generate_report(self):
+        """Genera reporte completo de todas las baselines"""
+        report_path = os.path.join(self.baseline_dir, "baseline_report.json")
+        
+        report = {
+            'baseline_name': self.baseline_name,
+            'created_at': datetime.now().isoformat(),
+            'total_iterations': len(self.baseline_history),
+            'iteration_size': self.ITERATION_SIZE,
+            'baselines': self.baseline_history,
+            'directory_structure': {
+                'models': self.models_dir,
+                'memories': self.memories_dir,
+                'teachers': self.teachers_dir,
+                'students': self.students_dir,
+                'audios': self.audios_dir,
+                'results': self.results_dir
+            }
+        }
+        
+        with open(report_path, "w") as f:
+            json.dump(report, f, indent=2)
+            
+        logger.info(f"[BaselineManager] Reporte generado en {report_path}")
+        return report
+
+
+# ============================================================================
+# INTEGRACIÓN EN EL PIPELINE PRINCIPAL
+# ============================================================================
+
+async def run_full_pipeline(args: argparse.Namespace, go_no_go_threshold: float = 0.05) -> Dict:
+    """
+    Orquesta todas las etapas del pipeline AOC con guardado por baseline.
+    """
+    os.makedirs(args.output_dir, exist_ok=True)
+    
+    # ========== INICIALIZAR BASELINE MANAGER ==========
+    baseline_name = f"baseline_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    baseline_manager = BaselineModelManager(args.output_dir, baseline_name)
+    
+    # Guardar configuración inicial
+    config_path = os.path.join(baseline_manager.baseline_dir, "config.json")
+    with open(config_path, "w") as f:
+        json.dump(vars(args), f, indent=2)
+    
+    logger.info(f"[Pipeline] Baseline Manager inicializado: {baseline_name}")
+    
+    # ... (código existente de carga de datos hasta obtener X_train, Y_train) ...
+    
+    # ========== MODIFICAR EL LOOP DE ENTRENAMIENTO ==========
+    # En lugar de procesar todo de una vez, procesar en chunks de 4000 muestras
+    
+    total_samples = len(X_train)
+    samples_per_baseline = 4000
+    n_baselines = (total_samples + samples_per_baseline - 1) // samples_per_baseline
+    
+    logger.info(f"[Pipeline] Procesando {total_samples} muestras en {n_baselines} baselines")
+    
+    all_baseline_results = []
+    current_model = model
+    current_memory = None
+    current_teacher = None
+    current_student = None
+    
+    for baseline_idx in range(n_baselines):
+        start_idx = baseline_idx * samples_per_baseline
+        end_idx = min(start_idx + samples_per_baseline, total_samples)
+        
+        X_batch = X_train[start_idx:end_idx]
+        Y_batch = Y_train[start_idx:end_idx]
+        
+        logger.info("="*70)
+        logger.info(f"📦 BASELINE {baseline_idx + 1}/{n_baselines}")
+        logger.info(f"   Muestras: {start_idx} - {end_idx} ({len(X_batch)} frames)")
+        logger.info("="*70)
+        
+        # Guardar datos de audio de esta baseline
+        baseline_manager.save_audio_samples(
+            X_batch, Y_batch, 
+            current_model.predict(X_batch) if current_model else np.zeros_like(X_batch),
+            iteration=baseline_idx + 1
+        )
+        
+        # ========== ENTRENAR MODELO CON ESTE BATCH ==========
+        # (Aquí va el código de entrenamiento con X_batch, Y_batch)
+        
+        # ========== GUARDAR MODELO PRINCIPAL ==========
+        if current_model:
+            baseline_manager.save_model(current_model, "dsvm_main", iteration=baseline_idx + 1)
+        
+        # ========== GUARDAR MEMORIA DEL AGENTE ==========
+        if hasattr(self, 'agent_memory') and self.agent_memory:
+            baseline_manager.save_memory(self.agent_memory, "agent_memory", iteration=baseline_idx + 1)
+        
+        # ========== GUARDAR TEACHER-STUDENT ==========
+        if current_teacher and current_student:
+            distillation_result = {
+                'teacher_loss': getattr(current_teacher, 'loss_history', []),
+                'student_loss': getattr(current_student, 'loss_history', []),
+                'timestamp': datetime.now().isoformat()
+            }
+            baseline_manager.save_teacher_student_pair(
+                current_teacher, current_student, distillation_result,
+                iteration=baseline_idx + 1
+            )
+        
+        # ========== ACTUALIZAR CONTADOR ==========
+        baseline_manager.update_samples_processed(len(X_batch))
+        
+        # ========== GUARDAR RESULTADOS DE ESTA BASELINE ==========
+        baseline_result = {
+            'baseline_id': baseline_idx + 1,
+            'samples_range': [start_idx, end_idx],
+            'timestamp': datetime.now().isoformat(),
+            'model_saved': True,
+            'memory_saved': current_memory is not None,
+            'teacher_student_saved': current_teacher is not None
+        }
+        all_baseline_results.append(baseline_result)
+        
+        # Guardar resultados parciales
+        partial_results_path = os.path.join(
+            baseline_manager.baseline_dir, 
+            f"iter_{baseline_idx + 1:04d}", 
+            "results.json"
+        )
+        with open(partial_results_path, "w") as f:
+            json.dump(baseline_result, f, indent=2)
+    
+    # ========== GUARDAR REPORTE FINAL ==========
+    final_report = baseline_manager.generate_report()
+    
+    # Agregar resultados al objeto results
+    results['baseline_management'] = {
+        'baseline_name': baseline_name,
+        'baseline_dir': baseline_manager.baseline_dir,
+        'n_baselines': n_baselines,
+        'samples_per_baseline': samples_per_baseline,
+        'total_samples': total_samples,
+        'baselines': all_baseline_results,
+        'report_path': os.path.join(baseline_manager.baseline_dir, "baseline_report.json")
+    }
+    
+    # ... (resto del código existente) ...
+    
+    return results

@@ -1,0 +1,18 @@
+python3 run_full_pipeline.py \
+    --audio_dir sounds/clean \
+    --occluded_dir sounds/occluded \
+    --output_dir outputs \
+    --max_files 4000 \
+    --occlusion_ratio 0.73 \
+    --n_adversaries 2 \
+    --num_rollouts 400 \
+    --post_train \
+    --sample_efficiency_analysis \
+    --model_routing \
+    --feedback_to_reward \
+    --consensus_threshold 2 \
+    --alignment_tax \
+    --knowledge_distillation \
+    --distillation_temperature 2.5 \
+    --distillation_alpha 0.8 \
+    --distillation_epochs 15

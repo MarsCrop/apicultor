@@ -1,0 +1,12 @@
+*.npy
+*.zip
+__pycache__/
+*.egg-info/
+build/
+dist/
+*~
+*.log
+sounds/
+outputs/
+*.pkl
+*.wav
